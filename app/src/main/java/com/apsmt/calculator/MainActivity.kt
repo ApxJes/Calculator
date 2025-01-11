@@ -13,6 +13,8 @@ class MainActivity : AppCompatActivity() {
     private var _binding: ActivityMainBinding? = null
     private val binding get() = _binding!!
 
+    private var isReused: Boolean = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         _binding = ActivityMainBinding.inflate(layoutInflater)
@@ -26,6 +28,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnDivide.setOnClickListener { dividedOperation(it) }
         binding.btnPercentage.setOnClickListener { findPercentageOperation(it) }
         binding.btnDecimal.setOnClickListener { addDecimalAction(it) }
+        binding.btnEqual.setOnClickListener { equalAction() }
 
         binding.btnOne.setOnClickListener { numberAction(it) }
         binding.btnTwo.setOnClickListener { numberAction(it) }
@@ -42,26 +45,44 @@ class MainActivity : AppCompatActivity() {
 
     private fun numberAction(view: View) {
         if (view is Button) {
+            if (isReused) {
+                binding.txvWorking.text = binding.txvResult.text
+                binding.txvResult.text = ""
+                isReused = false
+            }
             binding.txvWorking.append(view.text)
         }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun backSpaceAction() {
-        val length = binding.txvWorking.text.toString().length
-        if (length > 0) {
-            binding.txvWorking.text = binding.txvWorking.text.subSequence(0, length - 1)
+        if (isReused) {
+            binding.txvWorking.text = "${binding.txvResult.text} %"
+            binding.txvResult.text = ""
+            isReused = false
+        } else {
+            val length = binding.txvWorking.text.toString().length
+            if (length > 0) {
+                binding.txvWorking.text = binding.txvWorking.text.subSequence(0, length - 1)
+            }
         }
     }
 
     private fun clearAllAction() {
         binding.txvWorking.text = ""
         binding.txvResult.text = ""
+        isReused = false
     }
 
     private fun operatorHandel(view: View) {
         if (view is Button) {
+            if (isReused) {
+                binding.txvWorking.text = binding.txvResult.text
+                binding.txvResult.text = ""
+                isReused = false
+            }
             val workingText = binding.txvWorking.text.toString()
-            if(workingText.isNotEmpty() && workingText.last() !in "+-*/"){
+            if (workingText.isNotEmpty() && workingText.last() !in "+-*/") {
                 binding.txvWorking.append(view.text)
             }
         }
@@ -86,26 +107,55 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetTextI18n")
     private fun findPercentageOperation(view: View) {
         if (view is Button) {
-            try {
-                if (binding.txvWorking.text.isNotEmpty()) {
-                    binding.txvResult.text =
-                        (binding.txvWorking.text.toString().toDouble() / 100).toString()
+            if (isReused) {
+                binding.txvWorking.text = binding.txvResult.text
+                binding.txvResult.text = ""
+                binding.txvResult.text =
+                    (binding.txvWorking.text.toString().toDouble() / 100).toString()
+            } else {
+                try {
+                    if (binding.txvWorking.text.isNotEmpty()) {
+                        binding.txvResult.text =
+                            (binding.txvWorking.text.toString().toDouble() / 100).toString()
+                    }
+                } catch (e: Exception) {
+                    binding.txvResult.text = "Error"
                 }
-            } catch (e: Exception) {
-                binding.txvResult.text = "Error"
             }
         }
     }
 
     private fun addDecimalAction(view: View) {
-        if(view is Button) {
+        if (view is Button) {
             val workingText = binding.txvWorking.text.toString()
-            if(workingText.isNotEmpty() && workingText.last() !in "."){
+            if (workingText.isNotEmpty() && workingText.last() !in ".") {
                 binding.txvWorking.append(view.text)
             }
         }
     }
 
+    @SuppressLint("SetTextI18n")
+    private fun equalAction() {
+        val workingText = binding.txvWorking.text
+        try {
+            if (workingText.isNotEmpty()) {
+                val result = evaluateExpression(workingText.toString())
+                binding.txvResult.text = result.toString()
+                isReused = true
+            }
+        } catch (e: Exception) {
+            binding.txvResult.text = "Error"
+        }
+
+    }
+
+    private fun evaluateExpression(expression: String): Double {
+        val rhino = org.mozilla.javascript.Context.enter()
+        rhino.optimizationLevel = -1
+        val result =
+            rhino.evaluateString(rhino.initStandardObjects(), expression, "Javascript", 1, null)
+        return result.toString().toDouble()
+    }
 
     override fun onDestroy() {
         super.onDestroy()
